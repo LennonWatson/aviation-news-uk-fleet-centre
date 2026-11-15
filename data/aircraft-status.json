@@ -1,0 +1,12 @@
+{
+  "updated_utc": null,
+  "source": "adsb.lol",
+  "licence": "Open Database License (ODbL) 1.0",
+  "attribution": "Aircraft observations provided by adsb.lol",
+  "registrations_in_site_database": 0,
+  "aircraft_records": 0,
+  "records_updated_this_run": 0,
+  "registrations_not_returned_by_api": 0,
+  "errors": [],
+  "aircraft": {}
+}

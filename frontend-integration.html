@@ -1,0 +1,65 @@
+<!-- ANUK last-known aircraft status panel: add before </body> in index.html -->
+<style>
+#anuk-status-panel{margin-top:14px;border:1px solid #dce5ed;border-radius:12px;background:#fff;padding:16px}
+#anuk-status-panel h3{margin:0 0 8px;color:#15334b}
+#anuk-status-panel .anuk-status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+#anuk-status-panel .anuk-status-cell{padding:10px;border:1px solid #e3ebf1;border-radius:8px;background:#f8fbfd}
+#anuk-status-panel small{display:block;color:#718096;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+#anuk-status-panel strong{display:block;margin-top:4px;color:#1e2b38;font-size:13px;overflow-wrap:anywhere}
+#anuk-status-panel .anuk-status-note{margin-top:10px;color:#687382;font-size:11px;line-height:1.5}
+@media(max-width:560px){#anuk-status-panel .anuk-status-grid{grid-template-columns:1fr}}
+</style>
+<script>
+(async function(){
+  const DATA_URL = './data/aircraft-status.json';
+  let database;
+  try {
+    const response = await fetch(DATA_URL, {cache:'no-store'});
+    if (!response.ok) throw new Error('Status data is not available yet');
+    database = await response.json();
+  } catch (error) {
+    console.info('ANUK aircraft status:', error.message);
+    return;
+  }
+
+  const esc = value => String(value ?? 'Not recorded').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmt = value => {
+    if (!value) return 'Not recorded';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? 'Not recorded' : date.toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short',timeZone:'UTC'})+' UTC';
+  };
+  const originalOpen = window.openAircraftProfile;
+  if (typeof originalOpen !== 'function' || window.__anukStatusHooked) return;
+  window.__anukStatusHooked = true;
+  window.openAircraftProfile = function(reg, type, operator) {
+    originalOpen.apply(this, arguments);
+    const modal = document.querySelector('.aircraft-modal-card');
+    if (!modal) return;
+    const old = modal.querySelector('#anuk-status-panel');
+    if (old) old.remove();
+    const item = database.aircraft?.[String(reg || '').toUpperCase()];
+    const panel = document.createElement('section');
+    panel.id = 'anuk-status-panel';
+    panel.innerHTML = item ? `
+      <h3>Last-known aircraft status</h3>
+      <div class="anuk-status-grid">
+        <div class="anuk-status-cell"><small>Assessment</small><strong>${esc(item.status)}</strong></div>
+        <div class="anuk-status-cell"><small>Confidence</small><strong>${esc(item.confidence)}</strong></div>
+        <div class="anuk-status-cell"><small>Last detected</small><strong>${esc(fmt(item.last_detected_utc))}</strong></div>
+        <div class="anuk-status-cell"><small>Last position</small><strong>${esc(fmt(item.last_position_utc))}</strong></div>
+        <div class="anuk-status-cell"><small>Last known coordinates</small><strong>${item.latitude != null && item.longitude != null ? esc(Number(item.latitude).toFixed(4)+', '+Number(item.longitude).toFixed(4)) : 'Not recorded'}</strong></div>
+        <div class="anuk-status-cell"><small>Last airborne detection</small><strong>${esc(fmt(item.last_airborne_detected_utc))}</strong></div>
+        <div class="anuk-status-cell"><small>Last ground detection</small><strong>${esc(fmt(item.last_ground_detected_utc))}</strong></div>
+      </div>
+      <div class="anuk-status-note">Source: adsb.lol. Database refreshed ${esc(fmt(database.updated_utc))}. This is an ADS-B observation, not confirmation of an aircraft's operational status. No recent detection does not prove storage or retirement. Data is provided under ODbL 1.0.</div>
+    ` : `
+      <h3>Last-known aircraft status</h3>
+      <div class="anuk-status-note">No ADS-B observation has been recorded for this registration yet. This does not mean the aircraft is inactive or stored.</div>
+    `;
+    const anchor = modal.querySelector('.profile-grid') || modal.querySelector('.aircraft-photo-wrap');
+    if (anchor) anchor.insertAdjacentElement('afterend', panel);
+    else modal.appendChild(panel);
+  };
+})();
+</script>
